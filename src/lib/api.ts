@@ -120,14 +120,20 @@ export const api = {
   async sharedCover(id: string): Promise<Blob> {
     return (await request(`/api/library/books/${id}/cover`)).blob()
   },
-  async putSharedChapter(id: string, n: number, chapter: Omit<SharedChapter, 'n'>): Promise<void> {
-    await request(`/api/library/books/${id}/chapters/${n}`, { ...json(chapter), method: 'PUT' })
+  async putSharedBundle(id: string, k: number, chapters: SharedChapter[]): Promise<void> {
+    await request(`/api/library/books/${id}/bundles/${k}`, { ...json({ chapters }), method: 'PUT' })
   },
-  async sharedChapter(id: string, n: number): Promise<SharedChapter> {
-    return (await request(`/api/library/books/${id}/chapters/${n}`, { cache: 'no-store' })).json()
+  async sharedBundle(id: string, k: number): Promise<SharedChapter[]> {
+    return ((await (await request(`/api/library/books/${id}/bundles/${k}`, { cache: 'no-store' })).json()) as { chapters: SharedChapter[] }).chapters
   },
-  async sharedNarrations(id: string): Promise<SharedNarration[]> {
-    return (await request(`/api/library/books/${id}/narrations`, { cache: 'no-store' })).json()
+  /** The published narration for one chapter, or null if nobody has shared one yet. */
+  async sharedNarration(id: string, n: number): Promise<SharedNarration | null> {
+    try {
+      return await (await request(`/api/library/books/${id}/narrations/${n}`, { cache: 'no-store' })).json()
+    } catch (e) {
+      if (e instanceof ApiClientError && e.code === 'not_found') return null
+      throw e
+    }
   },
   async putSharedNarrationPart(id: string, n: number, k: number, version: string, part: Blob): Promise<void> {
     await request(`/api/library/books/${id}/narrations/${n}/parts/${k}?version=${version}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: part })

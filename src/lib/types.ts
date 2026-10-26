@@ -27,6 +27,8 @@ export interface Book {
   cloud?: 'pending' | 'uploading' | 'synced' | 'error'
   /** Listed from the shared library but chapter text not downloaded to this browser yet. */
   pagesMissing?: boolean
+  /** Number of chapter bundles to download for a shared book. */
+  sharedBundles?: number
 }
 
 /** Persisted narration state. “generating”, “playing” are live UI states; “saved” = downloaded. */

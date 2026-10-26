@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 /** Minimal key/value object storage behind the shared library. Keys look like `books/<id>/meta.json`. */
@@ -6,6 +6,8 @@ export interface ObjectStore {
   readonly kind: 'vercel-blob' | 'filesystem'
   put(key: string, body: Buffer | string, contentType: string): Promise<void>
   get(key: string): Promise<Buffer | null>
+  /** Cheap existence check (a metadata read, not a download). */
+  exists(key: string): Promise<boolean>
   /** All keys under a prefix. */
   list(prefix: string): Promise<string[]>
   delete(keys: string[]): Promise<void>
@@ -37,6 +39,14 @@ export class FsStore implements ObjectStore {
       return await readFile(this.file(key))
     } catch {
       return null
+    }
+  }
+
+  async exists(key: string) {
+    try {
+      return (await stat(this.file(key))).isFile()
+    } catch {
+      return false
     }
   }
 
@@ -102,6 +112,17 @@ export class VercelBlobStore implements ObjectStore {
     }
     if (!res || res.statusCode !== 200 || !res.stream) return null
     return Buffer.from(await new Response(res.stream).arrayBuffer())
+  }
+
+  async exists(key: string) {
+    check(key)
+    const { head } = await import('@vercel/blob')
+    try {
+      await head(key, { token: this.token })
+      return true
+    } catch {
+      return false
+    }
   }
 
   async list(prefix: string) {

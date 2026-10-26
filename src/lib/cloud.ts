@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SharedBook, SharedNarration, VoiceSettings } from '@shared/types'
+import type { SharedBook, SharedChapter, SharedNarration, VoiceSettings } from '@shared/types'
 import { api, errorMessage } from './api'
 import { deleteBook, getBook, getPages, listBooks, putBook, putNarration, saveImportedBook, updateBook } from './db'
 import type { Book, Narration, Page } from './types'
@@ -30,6 +30,23 @@ export const useCloud = create<CloudState>(() => ({ syncing: false, downloads: {
 
 /** Stay well under Vercel's 4.5 MB request-body limit. */
 const PART_BYTES = 3_500_000
+/** Chapter bundles: one upload per ~3 MB of text (most books are a single bundle). */
+const BUNDLE_CHARS = 2_500_000
+
+/** Group chapters into as few uploads as possible (Blob writes are metered). */
+export function bundleChapters(chapters: SharedChapter[], max = BUNDLE_CHARS): SharedChapter[][] {
+  const bundles: SharedChapter[][] = []
+  let cur: SharedChapter[] = []
+  let size = 0
+  for (const c of chapters) {
+    const len = c.text.length + (c.title?.length ?? 0) + 40
+    if (cur.length && size + len > max) bundles.push(cur), (cur = []), (size = 0)
+    cur.push(c)
+    size += len
+  }
+  if (cur.length) bundles.push(cur)
+  return bundles
+}
 const CONCURRENCY = 4
 
 async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
@@ -43,7 +60,7 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
 
 const shareable = (b: Book) => !b.pagesMissing && b.cloud !== 'synced' && b.cloud !== 'uploading'
 
-function metaOf(book: Book): Omit<SharedBook, 'updatedAt'> {
+function metaOf(book: Book, chapterBundles: number): Omit<SharedBook, 'updatedAt'> {
   return {
     id: book.id,
     title: book.title,
@@ -53,11 +70,12 @@ function metaOf(book: Book): Omit<SharedBook, 'updatedAt'> {
     totalPages: book.totalPages,
     createdAt: book.createdAt,
     hasCover: Boolean(book.cover),
+    chapterBundles,
     scannedPages: book.scannedPages,
   }
 }
 
-/** Publish a whole book (metadata, cover, every chapter). Metadata goes last so it is never listed half-uploaded. */
+/** Publish a whole book: cover, chapter bundles, then metadata last so it is never listed half-uploaded. */
 export async function publishBook(bookId: string): Promise<void> {
   if (!useCloud.getState().enabled) return
   const book = await getBook(bookId)
@@ -66,9 +84,10 @@ export async function publishBook(bookId: string): Promise<void> {
   try {
     if (book.cover) await api.putSharedCover(bookId, book.cover)
     const pages = await getPages(bookId)
-    await mapLimit(pages, CONCURRENCY, (p) => api.putSharedChapter(bookId, p.pageNumber, { title: p.title, text: p.extractedText }))
-    await api.putSharedBook(metaOf(book))
-    await updateBook(bookId, { cloud: 'synced' })
+    const bundles = bundleChapters(pages.map((p) => ({ n: p.pageNumber, title: p.title, text: p.extractedText })))
+    for (const [k, chapters] of bundles.entries()) await api.putSharedBundle(bookId, k, chapters)
+    await api.putSharedBook(metaOf(book, bundles.length))
+    await updateBook(bookId, { cloud: 'synced', sharedBundles: bundles.length })
   } catch (e) {
     await updateBook(bookId, { cloud: 'error' })
     useCloud.setState({ error: `Could not share “${book.title}”: ${errorMessage(e)}` })
@@ -78,8 +97,8 @@ export async function publishBook(bookId: string): Promise<void> {
 /** Push a title/author change for everyone. */
 export async function publishMeta(bookId: string) {
   const book = await getBook(bookId)
-  if (!useCloud.getState().enabled || !book || book.cloud !== 'synced') return
-  await api.putSharedBook(metaOf(book)).catch(() => updateBook(bookId, { cloud: 'pending' }))
+  if (!useCloud.getState().enabled || !book || book.cloud !== 'synced' || !book.sharedBundles) return
+  await api.putSharedBook(metaOf(book, book.sharedBundles)).catch(() => updateBook(bookId, { cloud: 'pending' }))
 }
 
 /** Delete for everyone (shared copy first, then this browser's copy). */
@@ -132,15 +151,25 @@ async function runSync() {
           scannedPages: shared.scannedPages,
           cloud: 'synced',
           pagesMissing: true,
+          sharedBundles: shared.chapterBundles,
         }
         await putBook(book)
       } else if (mine.cloud === 'synced' && (mine.title !== shared.title || mine.author !== shared.author)) {
         await updateBook(shared.id, { title: shared.title, author: shared.author }) // renamed by someone
       }
     }
+    const deleted = new Set(remote.deleted ?? [])
     for (const book of local.values()) {
-      // Shared before but gone from the server: someone deleted it for everyone.
-      if ((book.cloud === 'synced' || book.pagesMissing) && !remoteIds.has(book.id)) await deleteBook(book.id)
+      if (remoteIds.has(book.id)) continue
+      if (deleted.has(book.id) || book.pagesMissing) {
+        // Deleted for everyone on purpose (or a listing we never downloaded): remove this copy.
+        await deleteBook(book.id)
+        local.delete(book.id)
+      } else if (book.cloud === 'synced') {
+        // Missing without a deletion record (e.g. storage was reset): share it again from here.
+        await updateBook(book.id, { cloud: 'pending' })
+        local.set(book.id, { ...book, cloud: 'pending' })
+      }
     }
     for (const book of local.values()) if (shareable(book)) await publishBook(book.id)
     useCloud.setState({ lastSync: Date.now() })
@@ -159,12 +188,12 @@ export async function ensureBookContent(bookId: string): Promise<void> {
   set(0)
   try {
     const pages: Page[] = []
-    let done = 0
-    const numbers = Array.from({ length: book.totalPages }, (_, i) => i + 1)
-    await mapLimit(numbers, 6, async (n) => {
-      const c = await api.sharedChapter(bookId, n)
-      pages.push({ id: pageId(bookId, n), bookId, pageNumber: n, extractedText: c.text, title: c.title, bookmarked: false, narrationStatus: 'none' })
-      set(++done)
+    const bundles = Array.from({ length: book.sharedBundles ?? 1 }, (_, k) => k)
+    await mapLimit(bundles, CONCURRENCY, async (k) => {
+      for (const c of await api.sharedBundle(bookId, k)) {
+        pages.push({ id: pageId(bookId, c.n), bookId, pageNumber: c.n, extractedText: c.text, title: c.title, bookmarked: false, narrationStatus: 'none' })
+      }
+      set(pages.length)
     })
     await saveImportedBook({ ...book, pagesMissing: false }, pages)
   } finally {
@@ -178,14 +207,16 @@ export async function ensureBookContent(bookId: string): Promise<void> {
 
 // ---- shared narration ----
 
-const manifestCache = new Map<string, { at: number; list: SharedNarration[] }>()
+const manifestCache = new Map<string, { at: number; manifest: SharedNarration | null }>()
 
-async function sharedManifests(bookId: string): Promise<SharedNarration[]> {
-  const hit = manifestCache.get(bookId)
-  if (hit && Date.now() - hit.at < 30_000) return hit.list
-  const list = await api.sharedNarrations(bookId)
-  manifestCache.set(bookId, { at: Date.now(), list })
-  return list
+/** The shared manifest for one chapter (a single cheap read; cached briefly). */
+async function sharedManifest(bookId: string, n: number): Promise<SharedNarration | null> {
+  const key = `${bookId}:${n}`
+  const hit = manifestCache.get(key)
+  if (hit && Date.now() - hit.at < 30_000) return hit.manifest
+  const manifest = await api.sharedNarration(bookId, n)
+  manifestCache.set(key, { at: Date.now(), manifest })
+  return manifest
 }
 
 /**
@@ -198,10 +229,8 @@ export async function fetchSharedNarration(args: { bookId: string; pageNumber: n
   if (book?.cloud !== 'synced') return null
   const engine = useVoices.getState().provider?.engineVersion
   try {
-    const m = (await sharedManifests(args.bookId)).find(
-      (x) => x.pageNumber === args.pageNumber && x.voiceId === args.voiceId && x.style === args.settings.style && x.textHash === args.textHash && (!engine || x.engine === engine),
-    )
-    if (!m) return null
+    const m = await sharedManifest(args.bookId, args.pageNumber)
+    if (!m || m.voiceId !== args.voiceId || m.style !== args.settings.style || m.textHash !== args.textHash || (engine && m.engine !== engine)) return null
     const parts: Blob[] = []
     for (let k = 0; k < m.parts; k++) parts.push(await api.sharedNarrationPart(args.bookId, args.pageNumber, k, m.version))
     const id = pageId(args.bookId, args.pageNumber)
@@ -253,7 +282,7 @@ export async function publishNarration(n: Narration): Promise<void> {
       parts,
       version,
     })
-    manifestCache.delete(n.bookId)
+    manifestCache.delete(`${n.bookId}:${n.pageNumber}`)
   } catch {
     /* sharing audio is best-effort; the local copy still plays */
   }

@@ -120,6 +120,8 @@ export interface SharedBook {
   createdAt: number
   updatedAt: number
   hasCover: boolean
+  /** Chapter text is stored in this many bundles. */
+  chapterBundles: number
   scannedPages?: number[]
 }
 
@@ -128,6 +130,8 @@ export interface SharedLibrary {
   reason?: string
   store?: string
   books: SharedBook[]
+  /** Ids deleted on purpose (browsers remove their copies). */
+  deleted?: string[]
 }
 
 export interface SharedChapter {
