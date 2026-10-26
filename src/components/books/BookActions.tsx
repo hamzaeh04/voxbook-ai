@@ -1,11 +1,11 @@
-import { BookOpen, Pencil, Trash2 } from 'lucide-react'
+import { BookOpen, Pencil, Share2, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BatchPanel } from '../reader/BatchPanel'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
-import { updateBook } from '@/lib/db'
-import { deleteEverywhere, publishMeta } from '@/lib/cloud'
+import { getBook, updateBook } from '@/lib/db'
+import { deleteEverywhere, publishBook, publishMeta, useCloud } from '@/lib/cloud'
 import type { Book } from '@/lib/types'
 import { pickVoice, useVoices } from '@/stores/voices'
 import { useSettings } from '@/stores/settings'
@@ -19,6 +19,7 @@ export function BookActions({ book, onClose }: { book?: Book; onClose: () => voi
   const voices = useVoices((s) => s.voices)
   const globalVoice = useSettings((s) => s.preferredVoiceId)
   const [mode, setMode] = useState<'menu' | 'edit' | 'delete'>('menu')
+  const cloudOn = useCloud((s) => s.enabled)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   useEffect(() => {
@@ -47,6 +48,11 @@ export function BookActions({ book, onClose }: { book?: Book; onClose: () => voi
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => navigate(`/read/${book.id}`)}><BookOpen size={16} /> {book.readingProgress > 0 ? `Continue (${book.unit === 'chapter' ? 'chapter' : 'page'} ${book.lastReadPage})` : 'Open'}</Button>
             <Button onClick={() => setMode('edit')}><Pencil size={15} /> Rename / edit</Button>
+            {cloudOn && !book.pagesMissing && book.cloud !== 'synced' && (
+              <Button onClick={() => void publishBook(book.id).then(() => getBook(book.id)).then((b) => (b?.cloud === 'synced' ? toast.success(`“${book.title}” is now shared with everyone.`) : toast.error(useCloud.getState().error ?? 'Sharing failed.')))}>
+                <Share2 size={15} /> Share now
+              </Button>
+            )}
             <Button variant="danger" onClick={() => setMode('delete')}><Trash2 size={15} /> Remove</Button>
           </div>
           <div>

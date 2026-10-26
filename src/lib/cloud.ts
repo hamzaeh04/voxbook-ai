@@ -58,7 +58,9 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
   )
 }
 
-const shareable = (b: Book) => !b.pagesMissing && b.cloud !== 'synced' && b.cloud !== 'uploading'
+/** Uploads running in this tab. A book marked 'uploading' but not in here was interrupted (tab closed) and is retried. */
+const uploadingNow = new Set<string>()
+const shareable = (b: Book) => !b.pagesMissing && b.cloud !== 'synced' && !uploadingNow.has(b.id)
 
 function metaOf(book: Book, chapterBundles: number): Omit<SharedBook, 'updatedAt'> {
   return {
@@ -79,7 +81,8 @@ function metaOf(book: Book, chapterBundles: number): Omit<SharedBook, 'updatedAt
 export async function publishBook(bookId: string): Promise<void> {
   if (!useCloud.getState().enabled) return
   const book = await getBook(bookId)
-  if (!book || book.pagesMissing) return
+  if (!book || book.pagesMissing || uploadingNow.has(bookId)) return
+  uploadingNow.add(bookId)
   await updateBook(bookId, { cloud: 'uploading' })
   try {
     if (book.cover) await api.putSharedCover(bookId, book.cover)
@@ -91,6 +94,8 @@ export async function publishBook(bookId: string): Promise<void> {
   } catch (e) {
     await updateBook(bookId, { cloud: 'error' })
     useCloud.setState({ error: `Could not share “${book.title}”: ${errorMessage(e)}` })
+  } finally {
+    uploadingNow.delete(bookId)
   }
 }
 

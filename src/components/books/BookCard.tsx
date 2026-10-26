@@ -7,6 +7,7 @@ import { useObjectUrl } from '@/hooks/useObjectUrl'
 import type { Book } from '@/lib/types'
 import { timeAgo, unitOf } from '@/lib/utils'
 import { useBookOpen } from '@/stores/bookOpen'
+import { useCloud } from '@/lib/cloud'
 import { Progress } from '../ui/misc'
 import { Cover, coverHue } from './Cover'
 
@@ -54,6 +55,16 @@ export function BookCard({ book, audioPages = 0, voiceName, onMenu }: Props) {
   }
 
   const pct = Math.round(book.readingProgress * 100)
+  const cloudOn = useCloud((s) => s.enabled)
+  const sharing = !cloudOn
+    ? null
+    : book.cloud === 'synced'
+      ? { label: book.pagesMissing ? 'Shared · not downloaded' : 'Shared', tone: 'bg-emerald-700/80' }
+      : book.cloud === 'uploading'
+        ? { label: 'Sharing…', tone: 'bg-black/65' }
+        : book.cloud === 'error'
+          ? { label: 'Share failed', tone: 'bg-red-700/85' }
+          : { label: 'Not shared yet', tone: 'bg-black/65' }
   return (
     <article className="group relative flex flex-col gap-3">
       <div style={{ perspective: 900 }}>
@@ -73,6 +84,11 @@ export function BookCard({ book, audioPages = 0, voiceName, onMenu }: Props) {
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/50 via-black/15 to-transparent" />
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 w-px bg-white/15" />
           <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-r-xl ring-1 ring-inset ring-white/10" />
+          {sharing && (
+            <span className={`absolute left-4 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur ${sharing.tone}`}>
+              {sharing.label}
+            </span>
+          )}
           {audioPages > 0 && (
             <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">
               <Headphones size={11} aria-hidden="true" /> {audioPages}/{book.totalPages}
