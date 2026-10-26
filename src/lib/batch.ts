@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { BatchItemState, VoiceInfo, VoiceSettings } from '@shared/types'
 import { api, ApiClientError, errorMessage } from './api'
 import { deleteMeta, getBatchRecord, getNarration, getPages, listBooks, setMeta } from './db'
+import { publishNarration } from './cloud'
 import { ensureConsent, generateForPage, narrationIsCurrent, storeNarration } from './narration'
 import type { BatchRecord } from './types'
 import { hashText, markupToPlain } from './utils'
@@ -72,7 +73,7 @@ async function saveItem(record: BatchRecord, voice: VoiceInfo, item: BatchItemSt
   const page = pages.find((p) => p.pageNumber === pageNumber)
   if (!page || !item.narrationId) return
   const audio = await api.fetchAudio(item.narrationId)
-  await storeNarration({
+  const narration = await storeNarration({
     bookId: record.bookId,
     pageNumber,
     voice,
@@ -80,6 +81,7 @@ async function saveItem(record: BatchRecord, voice: VoiceInfo, item: BatchItemSt
     textHash: hashText(markupToPlain(page.extractedText)),
     audio,
   })
+  void publishNarration(narration)
 }
 
 async function poll(record: BatchRecord, voice: VoiceInfo) {

@@ -177,11 +177,14 @@ On Vercel (`VERCEL=1`) the server adapts automatically:
 * **Cache** lives in `/tmp` and is per instance and temporary, so deduplication is best-effort.
 * **The mock provider** is refused in production.
 
+**Shared library: one-time setup on Vercel.** In your Vercel project, open **Storage → Create Database → Blob**, create the store, connect it to this project (this adds `BLOB_READ_WRITE_TOKEN`), then **redeploy**. Until then the app shows "Shared library is off" and books stay in each browser.
+
 **Public URL warning:** a Vercel deployment is reachable by anyone. Set `APP_ACCESS_TOKEN` so strangers can't use your server to generate speech. Also note that Microsoft may throttle or block the unofficial Edge endpoint from cloud IP addresses.
 
 ## Features checklist
 
 * Upload PDF / EPUB / TXT / DOCX: drag-and-drop or picker; validation of extension, MIME, size, and file signature; per-file phase + real extraction progress; useful errors for corrupt/encrypted/empty files; editable title/author.
+* **Shared library, no login.** Every uploaded book (chapter text, cover) and every generated chapter narration is stored on the server and appears for everyone who opens the app. Shared books download their text the first time they're opened in a browser, and published narration is reused instead of regenerated (no text is sent to the voice service). Rename and delete apply for everyone. Reading position, bookmarks, history and settings stay per browser. Storage is Vercel Blob in production and a local folder (`server/.data/library`) in development; see [server/library.ts](server/library.ts) and [src/lib/cloud.ts](src/lib/cloud.ts).
 * **Chapter-wise reading and narration.** Each chapter is one reading unit and one audio file (`Book_Title_Chapter_001.mp3`). Chapters come from the EPUB table of contents, the PDF outline (bookmarks), or chapter headings in TXT/DOCX, and fall back to ~8,000-character parts. Title-only sections are merged into the next chapter, chapters over 60,000 characters are split into parts, and Project Gutenberg notices/licences are kept out of the story chapters. Scanned PDFs stay page-based so in-browser OCR (Tesseract; progress + cancel) can fill in their pages. Books imported before chapter support stay page-based; re-upload them to get chapters.
 * Reader: serif typography, font-size / line-spacing / width controls, full screen, bookmarks, keyboard arrows, chapter number input, progress slider, page-turn transition, and an approximate paragraph highlight that scrolls along with the narration.
 * Voice Studio, per-page generate / listen / regenerate / download, pause / resume / restart / stop / speed / volume / seek, single-page and continuous modes (asks before generating missing audio unless you opt in), all-pages status list.

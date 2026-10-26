@@ -4,6 +4,10 @@ import type {
   BatchRequest,
   BatchState,
   GenerateRequest,
+  SharedBook,
+  SharedChapter,
+  SharedLibrary,
+  SharedNarration,
   VoicesResponse,
 } from '@shared/types'
 import { useSettings } from '@/stores/settings'
@@ -98,5 +102,40 @@ export const api = {
   },
   async retryBatch(id: string): Promise<BatchState> {
     return (await request(`/api/narration/batch/${id}/retry`, { method: 'POST' })).json()
+  },
+
+  // ---- shared library ----
+  async library(): Promise<SharedLibrary> {
+    return (await request('/api/library', { cache: 'no-store' })).json()
+  },
+  async putSharedBook(meta: Omit<SharedBook, 'updatedAt'>): Promise<SharedBook> {
+    return (await request(`/api/library/books/${meta.id}`, { ...json(meta), method: 'PUT' })).json()
+  },
+  async deleteSharedBook(id: string): Promise<void> {
+    await request(`/api/library/books/${id}`, { method: 'DELETE' })
+  },
+  async putSharedCover(id: string, cover: Blob): Promise<void> {
+    await request(`/api/library/books/${id}/cover`, { method: 'PUT', headers: { 'Content-Type': cover.type || 'image/jpeg' }, body: cover })
+  },
+  async sharedCover(id: string): Promise<Blob> {
+    return (await request(`/api/library/books/${id}/cover`)).blob()
+  },
+  async putSharedChapter(id: string, n: number, chapter: Omit<SharedChapter, 'n'>): Promise<void> {
+    await request(`/api/library/books/${id}/chapters/${n}`, { ...json(chapter), method: 'PUT' })
+  },
+  async sharedChapter(id: string, n: number): Promise<SharedChapter> {
+    return (await request(`/api/library/books/${id}/chapters/${n}`, { cache: 'no-store' })).json()
+  },
+  async sharedNarrations(id: string): Promise<SharedNarration[]> {
+    return (await request(`/api/library/books/${id}/narrations`, { cache: 'no-store' })).json()
+  },
+  async putSharedNarrationPart(id: string, n: number, k: number, version: string, part: Blob): Promise<void> {
+    await request(`/api/library/books/${id}/narrations/${n}/parts/${k}?version=${version}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: part })
+  },
+  async publishSharedNarration(id: string, n: number, manifest: SharedNarration): Promise<void> {
+    await request(`/api/library/books/${id}/narrations/${n}`, { ...json(manifest), method: 'PUT' })
+  },
+  async sharedNarrationPart(id: string, n: number, k: number, version: string): Promise<Blob> {
+    return (await request(`/api/library/books/${id}/narrations/${n}/parts/${k}?version=${version}`)).blob()
   },
 }

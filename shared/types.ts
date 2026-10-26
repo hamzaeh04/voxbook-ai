@@ -108,3 +108,46 @@ export const MAX_CHARS_PER_PAGE = 60000
 /** Total text accepted in one batch request. */
 export const MAX_BATCH_CHARS = 4_000_000
 export const MAX_BATCH_ITEMS = 1000
+
+/** A book in the shared library (everyone who opens the app sees these). */
+export interface SharedBook {
+  id: string
+  title: string
+  author: string
+  format: 'pdf' | 'epub' | 'txt' | 'docx'
+  unit: 'chapter' | 'page'
+  totalPages: number
+  createdAt: number
+  updatedAt: number
+  hasCover: boolean
+  scannedPages?: number[]
+}
+
+export interface SharedLibrary {
+  enabled: boolean
+  reason?: string
+  store?: string
+  books: SharedBook[]
+}
+
+export interface SharedChapter {
+  n: number
+  title?: string
+  text: string
+}
+
+/** Published narration for one chapter; audio is stored as `parts` byte slices of one file. */
+export interface SharedNarration {
+  pageNumber: number
+  voiceId: string
+  voiceName: string
+  style: NarrationStyle
+  engine?: string
+  format: 'mp3' | 'wav'
+  duration: number
+  size: number
+  createdAt: number
+  textHash: string
+  parts: number
+  version: string
+}

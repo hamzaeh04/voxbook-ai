@@ -7,6 +7,7 @@ import { getNarration, getPage, putNarration } from './db'
 import type { Narration, Page } from './types'
 import { hashText, markupToPlain, pageId } from './utils'
 import { useConsent } from '@/stores/consent'
+import { fetchSharedNarration, publishNarration } from './cloud'
 import { useVoices } from '@/stores/voices'
 
 export interface JobState {
@@ -184,11 +185,19 @@ export async function generateForPage(args: GenerateArgs): Promise<Narration> {
     if (existing && narrationIsCurrent(existing, page, voice.id, settings)) return existing
   }
 
+  // Someone may already have generated this chapter with the same voice and style: reuse it.
+  if (!args.force) {
+    const shared = await fetchSharedNarration({ bookId, pageNumber, voiceId: voice.id, settings, textHash })
+    if (shared) return shared
+  }
+
   await ensureConsent()
   const dedupeKey = `${jobKey}|${voice.id}|${settings.style}|${textHash}`
   return queue.enqueue(dedupeKey, jobKey, async (signal) => {
     // Only this chapter's text is sent — never the whole book.
     const audio = await generateInParts(text, voice.id, settings, signal)
-    return storeNarration({ bookId, pageNumber, voice, settings, textHash, audio })
+    const narration = await storeNarration({ bookId, pageNumber, voice, settings, textHash, audio })
+    void publishNarration(narration) // share it so nobody has to generate this chapter again
+    return narration
   })
 }

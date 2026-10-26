@@ -4,6 +4,7 @@ import { importFile, runOcrForBook, type ImportPhase } from '@/lib/documents'
 import { StorageFullError } from '@/lib/db'
 import { detectFormat } from '@/lib/documents/validate'
 import { useSettings } from './settings'
+import { publishBook } from '@/lib/cloud'
 import { toast } from './toasts'
 
 export interface UploadItem {
@@ -71,6 +72,7 @@ export const useUploads = create<UploadStore>((set, get) => {
           void navigator.storage?.persist?.()
           const res = await importFile(next.file, (p) => patch(next.id, { status: p.phase, fraction: p.fraction, detail: p.detail }), { maxBytes: useSettings.getState().maxFileMB * 1048576 })
           patch(next.id, { status: 'done', bookId: res.book.id, scannedPages: res.scannedPages.length, file: undefined, fraction: 1 })
+          void publishBook(res.book.id) // share with everyone who opens the app
         } catch (e) {
           const msg = e instanceof DocumentError || e instanceof StorageFullError ? e.message : 'Something went wrong while processing this file.'
           if (!(e instanceof DocumentError) && !(e instanceof StorageFullError)) console.error('[import]', e)
@@ -116,6 +118,7 @@ export const useUploads = create<UploadStore>((set, get) => {
         })
         setOcr({ status: 'done', message: `${res.recognised} page(s) recognised${res.empty ? `, ${res.empty} had no readable text` : ''}.` })
         toast.success('OCR finished. The recognised text is ready to read and narrate.')
+        void publishBook(bookId) // update the shared copy with the recognised text
       } catch (e) {
         if (e instanceof DocumentError && e.code === 'cancelled') setOcr({ status: 'cancelled', message: 'OCR cancelled. Pages already processed were not saved.' })
         else setOcr({ status: 'error', message: e instanceof Error ? e.message : 'OCR failed.' })

@@ -8,6 +8,8 @@ import { AudioCache } from './cache.js'
 import type { Config } from './config.js'
 import { ApiError } from './errors.js'
 import { JobManager } from './jobs.js'
+import { createLibraryRouter } from './library.js'
+import { FsStore, VercelBlobStore, type ObjectStore } from './store.js'
 import { NarrationService } from './narration.js'
 import { createProvider } from './providers/index.js'
 import type { TtsProvider } from './providers/types.js'
@@ -147,6 +149,20 @@ export function createApp(cfg: Config, providerOverride?: TtsProvider) {
   app.get('/api/narration/:id/download', sendAudio(true))
   app.get('/api/narration/:id', sendAudio(false))
 
+  // Shared library: Vercel Blob in production, a local folder in development.
+  const libraryStore: ObjectStore | null = cfg.library.blobToken
+    ? new VercelBlobStore(cfg.library.blobToken, cfg.library.blobAccess)
+    : cfg.serverless
+      ? null
+      : new FsStore(cfg.library.dir)
+  app.use(
+    '/api/library',
+    createLibraryRouter(
+      libraryStore,
+      'Shared library storage is not set up. In Vercel open Storage → Create Database → Blob, connect it to this project, then redeploy.',
+    ),
+  )
+
   app.use('/api', (_req, _res, next) => next(new ApiError('not_found', 'Unknown API route.')))
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -164,5 +180,5 @@ export function createApp(cfg: Config, providerOverride?: TtsProvider) {
     res.status(apiErr.status).json(body)
   })
 
-  return { app, narration, jobs, cache, provider }
+  return { app, narration, jobs, cache, provider, libraryStore }
 }

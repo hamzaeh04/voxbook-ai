@@ -4,6 +4,7 @@ import { BookActions } from '@/components/books/BookActions'
 import { BookCard } from '@/components/books/BookCard'
 import { UploadQueue, UploadZone, useFilePicker } from '@/components/books/UploadZone'
 import { SetupBanner } from '@/components/layout/SetupBanner'
+import { LibraryBanner } from '@/components/layout/LibraryBanner'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, Select } from '@/components/ui/misc'
 import { useLibrary } from '@/hooks/useLibrary'
@@ -73,6 +74,7 @@ export default function Library({ mode = 'library' }: { mode?: 'library' | 'rece
         {mode === 'library' && <>{picker.input}<Button variant="primary" onClick={picker.open}><Upload size={16} /> Upload book</Button></>}
       </header>
       <SetupBanner />
+      <LibraryBanner />
       {mode === 'library' && <UploadQueue />}
 
       {books.length > 0 && (

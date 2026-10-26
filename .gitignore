@@ -3,3 +3,4 @@ dist
 .env
 server/.cache
 *.local
+server/.data

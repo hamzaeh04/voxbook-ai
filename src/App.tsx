@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import { Overlays, Shell } from '@/components/layout/Shell'
 import { resumeActiveBatches } from '@/lib/batch'
+import { syncLibrary } from '@/lib/cloud'
 import { initPlayback } from '@/lib/playback'
 import { applyTheme, useSettings } from '@/stores/settings'
 import { toast } from '@/stores/toasts'
@@ -24,10 +25,27 @@ export default function App() {
   useEffect(() => applyTheme(theme), [theme])
   useEffect(() => {
     initPlayback()
-    void load().then(() => resumeActiveBatches())
+    void load().then(() => {
+      void resumeActiveBatches()
+      void syncLibrary()
+    })
+    // Pick up books other people add: every 5 minutes while visible, and when returning to the tab
+    // (at most once a minute; Blob storage list operations are metered).
+    const tick = setInterval(() => document.visibilityState === 'visible' && void syncLibrary(), 5 * 60_000)
+    let lastFocusSync = Date.now()
+    const onFocus = () => {
+      if (Date.now() - lastFocusSync < 60_000) return
+      lastFocusSync = Date.now()
+      void syncLibrary()
+    }
+    window.addEventListener('focus', onFocus)
     navigator.storage?.estimate?.().then((e) => {
       if (e?.quota && (e.usage ?? 0) / e.quota > 0.9) toast.warning('Browser storage is over 90% full. Remove books or recordings to avoid failed saves.')
     }).catch(() => undefined)
+    return () => {
+      clearInterval(tick)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [load])
 
   return (

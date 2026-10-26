@@ -5,6 +5,7 @@ import { Cover } from '@/components/books/Cover'
 import { UploadQueue, UploadZone, useFilePicker } from '@/components/books/UploadZone'
 import { VoiceCard } from '@/components/audio/VoiceCard'
 import { SetupBanner } from '@/components/layout/SetupBanner'
+import { LibraryBanner } from '@/components/layout/LibraryBanner'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, Progress } from '@/components/ui/misc'
 import { useDb } from '@/hooks/useDb'
@@ -56,6 +57,7 @@ export default function Dashboard() {
       </header>
 
       <SetupBanner />
+      <LibraryBanner />
       <UploadQueue />
 
       {!loading && books.length === 0 ? (

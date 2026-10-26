@@ -6,7 +6,7 @@ import { PlayerBar } from '@/components/audio/PlayerBar'
 import { OcrControl } from '@/components/books/OcrControl'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
-import { Notice } from '@/components/ui/misc'
+import { Notice, Progress } from '@/components/ui/misc'
 import { Slider } from '@/components/ui/Slider'
 import { NarrationPanel } from '@/components/reader/NarrationPanel'
 import { PagesDialog } from '@/components/reader/PagesDialog'
@@ -15,6 +15,8 @@ import { useDb } from '@/hooks/useDb'
 import { useMotionLevel } from '@/hooks/useMotion'
 import { addHistory, getBook, getPage, updateBook, updatePage } from '@/lib/db'
 import { stopPlayback } from '@/lib/playback'
+import { ensureBookContent, useCloud } from '@/lib/cloud'
+import { errorMessage } from '@/lib/api'
 import { clamp, cn, unitOf } from '@/lib/utils'
 import { usePlayback } from '@/stores/playback'
 import { useReader } from '@/stores/reader'
@@ -27,6 +29,15 @@ export default function ReaderPage() {
   const [params] = useSearchParams()
   const { data: book, loading } = useDb(() => getBook(id), [id])
   const reader = useReader()
+  // Shared books from other people download their chapter text the first time they are opened here.
+  const download = useCloud((s) => s.downloads[id])
+  const [downloadError, setDownloadError] = useState<string>()
+  const [downloadAttempt, setDownloadAttempt] = useState(0)
+  useEffect(() => {
+    if (!book?.pagesMissing) return
+    setDownloadError(undefined)
+    ensureBookContent(book.id).catch((e) => setDownloadError(errorMessage(e)))
+  }, [book?.id, book?.pagesMissing, downloadAttempt])
   const { fontSize, lineHeight, readingWidth, set } = useSettings()
   const { effects3d, reduced } = useMotionLevel()
   const [showType, setShowType] = useState(false)
@@ -136,6 +147,29 @@ export default function ReaderPage() {
           <h1 className="text-xl font-semibold">Book not found</h1>
           <p className="mt-1 text-muted">It may have been removed from your library.</p>
           <Link to="/library" className="mt-4 inline-block text-amber hover:underline">Back to library</Link>
+        </div>
+      </div>
+    )
+  }
+  if (book.pagesMissing) {
+    return (
+      <div className="grid h-dvh place-items-center p-6 text-center">
+        <div className="w-full max-w-sm space-y-3">
+          <h1 className="text-lg font-semibold">{book.title}</h1>
+          {downloadError ? (
+            <>
+              <Notice tone="error" title="Could not download this book">{downloadError}</Notice>
+              <Button onClick={() => setDownloadAttempt((n) => n + 1)}>Try again</Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted" role="status">
+                Downloading from the shared library… {download ? `${download.done} of ${download.total}` : ''}
+              </p>
+              <Progress value={download ? download.done / download.total : undefined} label="Downloading book" />
+            </>
+          )}
+          <Link to="/library" className="inline-block text-sm text-amber hover:underline">Back to library</Link>
         </div>
       </div>
     )

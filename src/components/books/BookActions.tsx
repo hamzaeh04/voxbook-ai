@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { BatchPanel } from '../reader/BatchPanel'
 import { Button } from '../ui/Button'
 import { Dialog } from '../ui/Dialog'
-import { deleteBook, updateBook } from '@/lib/db'
+import { updateBook } from '@/lib/db'
+import { deleteEverywhere, publishMeta } from '@/lib/cloud'
 import type { Book } from '@/lib/types'
 import { pickVoice, useVoices } from '@/stores/voices'
 import { useSettings } from '@/stores/settings'
@@ -30,8 +31,12 @@ export function BookActions({ book, onClose }: { book?: Book; onClose: () => voi
   const voice = pickVoice(voices, book.preferredVoiceId ?? globalVoice)
   const remove = async () => {
     if (usePlayback.getState().bookId === book.id) unloadPlayback()
-    await deleteBook(book.id)
-    toast.success(`Removed “${book.title}” and its recordings.`)
+    try {
+      await deleteEverywhere(book.id)
+    } catch (e) {
+      return toast.error(e instanceof Error ? e.message : 'Could not remove the book.')
+    }
+    toast.success(`Removed “${book.title}”.`)
     onClose()
   }
 
@@ -51,7 +56,7 @@ export function BookActions({ book, onClose }: { book?: Book; onClose: () => voi
         </div>
       )}
       {mode === 'edit' && (
-        <form className="mt-5 space-y-4" onSubmit={async (e) => { e.preventDefault(); await updateBook(book.id, { title: title.trim() || book.title, author: author.trim() || book.author }); toast.success('Details updated.'); onClose() }}>
+        <form className="mt-5 space-y-4" onSubmit={async (e) => { e.preventDefault(); await updateBook(book.id, { title: title.trim() || book.title, author: author.trim() || book.author }); void publishMeta(book.id); toast.success('Details updated.'); onClose() }}>
           <label className="block text-sm">Title<input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1 h-10 w-full rounded-xl border border-line bg-raised px-3" /></label>
           <label className="block text-sm">Author<input value={author} onChange={(e) => setAuthor(e.target.value)} maxLength={200} className="mt-1 h-10 w-full rounded-xl border border-line bg-raised px-3" /></label>
           <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setMode('menu')}>Back</Button><Button type="submit" variant="primary">Save</Button></div>
@@ -59,7 +64,7 @@ export function BookActions({ book, onClose }: { book?: Book; onClose: () => voi
       )}
       {mode === 'delete' && (
         <div className="mt-4 space-y-4">
-          <p className="text-sm text-muted">“{book.title}”, its reading progress, bookmarks and every saved page recording will be permanently deleted from this device. Exported files are not affected.</p>
+          <p className="text-sm text-muted">“{book.title}” and its narration will be removed from the shared library for everyone who uses this app, along with your reading progress and bookmarks. Exported files are not affected.</p>
           <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setMode('menu')}>Keep book</Button><Button variant="danger" onClick={() => void remove()}>Delete permanently</Button></div>
         </div>
       )}

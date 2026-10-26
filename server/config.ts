@@ -19,6 +19,8 @@ export interface Config {
   serverless: boolean
   accessToken?: string
   cacheDir: string
+  /** Shared library storage: Vercel Blob when a token is present, else a local folder (not on serverless). */
+  library: { blobToken?: string; blobAccess: 'public' | 'private'; dir: string }
   retentionHours: number
   requestTimeoutMs: number
   generateLimitPerMinute: number
@@ -38,6 +40,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     serverless,
     accessToken: env.APP_ACCESS_TOKEN || undefined,
     cacheDir: env.CACHE_DIR ?? (serverless ? '/tmp/voxbook-cache' : 'server/.cache'),
+    library: {
+      blobToken: env.BLOB_READ_WRITE_TOKEN || undefined,
+      blobAccess: env.BLOB_ACCESS === 'private' ? 'private' : 'public',
+      dir: env.LIBRARY_DIR ?? 'server/.data/library',
+    },
     retentionHours: Number(env.AUDIO_RETENTION_HOURS ?? 24),
     requestTimeoutMs: Number(env.TTS_TIMEOUT_MS ?? 60000),
     generateLimitPerMinute: Number(env.GENERATE_LIMIT_PER_MINUTE ?? 60),

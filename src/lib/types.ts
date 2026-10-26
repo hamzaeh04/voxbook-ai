@@ -23,6 +23,10 @@ export interface Book {
   scannedPages?: number[]
   /** Reading/narration unit. Books imported before chapter support are page-based. */
   unit?: 'chapter' | 'page'
+  /** Shared-library state: `synced` once the book is on the server for everyone. */
+  cloud?: 'pending' | 'uploading' | 'synced' | 'error'
+  /** Listed from the shared library but chapter text not downloaded to this browser yet. */
+  pagesMissing?: boolean
 }
 
 /** Persisted narration state. “generating”, “playing” are live UI states; “saved” = downloaded. */
@@ -60,6 +64,8 @@ export interface Narration {
   textHash: string
   /** Voice-engine version that produced this audio (see ProviderInfo.engineVersion). */
   engine?: string
+  /** Downloaded from the shared library (so it is not published back). */
+  shared?: boolean
   downloadedAt?: number
 }
 
