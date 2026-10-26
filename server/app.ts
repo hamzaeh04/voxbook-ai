@@ -159,7 +159,7 @@ export function createApp(cfg: Config, providerOverride?: TtsProvider) {
     '/api/library',
     createLibraryRouter(
       libraryStore,
-      'Shared library storage is not set up. In Vercel open Storage → Create Database → Blob, connect it to this project, then redeploy.',
+      'This deployment has no Blob storage key (BLOB_READ_WRITE_TOKEN). In Vercel: Storage → Create Database → Blob, connect it to this project for the Production environment, then Deployments → ⋯ → Redeploy.',
     ),
   )
 

@@ -28,6 +28,18 @@ export interface Config {
   elevenlabs: { apiKey?: string; model: string; maleId?: string; femaleId?: string; neutralId?: string }
 }
 
+/**
+ * Vercel names the Blob key `<PREFIX>_READ_WRITE_TOKEN`; the prefix is BLOB by default but can be
+ * changed when connecting the store, so accept any variable whose value is a Blob read-write token.
+ */
+function findBlobToken(env: NodeJS.ProcessEnv): string | undefined {
+  if (env.BLOB_READ_WRITE_TOKEN) return env.BLOB_READ_WRITE_TOKEN
+  for (const [key, value] of Object.entries(env)) {
+    if (key.endsWith('READ_WRITE_TOKEN') && value?.startsWith('vercel_blob_rw_')) return value
+  }
+  return undefined
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const production = env.NODE_ENV === 'production'
   let provider = resolveProvider(env)
@@ -41,7 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     accessToken: env.APP_ACCESS_TOKEN || undefined,
     cacheDir: env.CACHE_DIR ?? (serverless ? '/tmp/voxbook-cache' : 'server/.cache'),
     library: {
-      blobToken: env.BLOB_READ_WRITE_TOKEN || undefined,
+      blobToken: findBlobToken(env),
       blobAccess: env.BLOB_ACCESS === 'private' ? 'private' : 'public',
       dir: env.LIBRARY_DIR ?? 'server/.data/library',
     },

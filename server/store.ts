@@ -76,14 +76,30 @@ export class VercelBlobStore implements ObjectStore {
   async put(key: string, body: Buffer | string, contentType: string) {
     check(key)
     const { put } = await import('@vercel/blob')
-    await put(key, body, { access: this.access, token: this.token, contentType, addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60 })
+    const write = () => put(key, body, { access: this.access, token: this.token, contentType, addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: 60 })
+    try {
+      await write()
+    } catch (e) {
+      // A store is either public or private; if BLOB_ACCESS doesn't match it, switch once and retry.
+      if (!/access|private|public/i.test(String((e as Error)?.message))) throw e
+      this.access = this.access === 'public' ? 'private' : 'public'
+      await write()
+    }
   }
 
   async get(key: string) {
     check(key)
     const { get } = await import('@vercel/blob')
     // useCache: false so an overwritten object (e.g. a renamed book) is never served stale.
-    const res = await get(key, { access: this.access, token: this.token, useCache: false })
+    const read = () => get(key, { access: this.access, token: this.token, useCache: false })
+    let res
+    try {
+      res = await read()
+    } catch (e) {
+      if (!/access|private|public/i.test(String((e as Error)?.message))) throw e
+      this.access = this.access === 'public' ? 'private' : 'public'
+      res = await read()
+    }
     if (!res || res.statusCode !== 200 || !res.stream) return null
     return Buffer.from(await new Response(res.stream).arrayBuffer())
   }

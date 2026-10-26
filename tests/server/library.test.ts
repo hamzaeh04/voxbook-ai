@@ -73,3 +73,11 @@ describe('shared library', () => {
     expect((await request(app).put(`/api/library/books/${ID}`).send(meta).expect(503)).body.error.code).toBe('not_configured')
   })
 })
+
+describe('blob token discovery', () => {
+  it('accepts the default name and a custom-prefixed name, ignoring unrelated tokens', () => {
+    expect(loadConfig({ BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_abc_123' } as NodeJS.ProcessEnv).library.blobToken).toBe('vercel_blob_rw_abc_123')
+    expect(loadConfig({ BOOKS_READ_WRITE_TOKEN: 'vercel_blob_rw_xyz_9' } as NodeJS.ProcessEnv).library.blobToken).toBe('vercel_blob_rw_xyz_9')
+    expect(loadConfig({ OTHER_READ_WRITE_TOKEN: 'not-a-blob-token' } as NodeJS.ProcessEnv).library.blobToken).toBeUndefined()
+  })
+})
