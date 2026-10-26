@@ -1,5 +1,5 @@
-import type { VoiceInfo, VoiceSettings } from '../../shared/types'
-import type { SynthesisResult, TtsProvider } from './types'
+import type { VoiceInfo, VoiceSettings } from '../../shared/types.js'
+import type { SynthesisResult, TtsProvider } from './types.js'
 
 /**
  * MOCK provider — development and automated tests only.

@@ -1,9 +1,9 @@
-import type { Config } from '../config'
-import { createEdgeProvider } from './edge'
-import { createElevenLabsProvider } from './elevenlabs'
-import { createMockProvider } from './mock'
-import { createOpenAIProvider } from './openai'
-import type { TtsProvider } from './types'
+import type { Config } from '../config.js'
+import { createEdgeProvider } from './edge.js'
+import { createElevenLabsProvider } from './elevenlabs.js'
+import { createMockProvider } from './mock.js'
+import { createOpenAIProvider } from './openai.js'
+import type { TtsProvider } from './types.js'
 
 export function createProvider(cfg: Config): TtsProvider {
   switch (cfg.provider) {
@@ -34,7 +34,7 @@ export function createProvider(cfg: Config): TtsProvider {
           return []
         },
         async synthesize() {
-          throw new (await import('../errors')).ApiError('not_configured', 'No TTS provider is configured on the server.')
+          throw new (await import('../errors.js')).ApiError('not_configured', 'No TTS provider is configured on the server.')
         },
       }
   }

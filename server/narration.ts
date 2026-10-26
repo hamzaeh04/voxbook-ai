@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
-import type { VoiceInfo, VoiceSettings } from '../shared/types'
-import { MAX_CHARS_PER_PAGE } from '../shared/types'
-import { AudioCache } from './cache'
-import { splitForTts } from '../shared/chunk'
-import type { Config } from './config'
-import { ApiError } from './errors'
-import type { TtsProvider } from './providers/types'
+import type { VoiceInfo, VoiceSettings } from '../shared/types.js'
+import { MAX_CHARS_PER_PAGE } from '../shared/types.js'
+import { AudioCache } from './cache.js'
+import { splitForTts } from '../shared/chunk.js'
+import type { Config } from './config.js'
+import { ApiError } from './errors.js'
+import type { TtsProvider } from './providers/types.js'
 
 const CHUNK_CONCURRENCY = 4
 

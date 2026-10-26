@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import type { BatchItemState, BatchRequest, BatchState } from '../shared/types'
-import { ApiError } from './errors'
-import type { NarrationService } from './narration'
+import type { BatchItemState, BatchRequest, BatchState } from '../shared/types.js'
+import { ApiError } from './errors.js'
+import type { NarrationService } from './narration.js'
 
 interface Job {
   id: string

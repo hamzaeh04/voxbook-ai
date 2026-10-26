@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import request from 'supertest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp } from '../../server/app'
-import { loadConfig } from '../../server/config'
-import { createEdgeProvider } from '../../server/providers/edge'
+import { createApp } from '../../server/app.js'
+import { loadConfig } from '../../server/config.js'
+import { createEdgeProvider } from '../../server/providers/edge.js'
 
 const env = (extra: Record<string, string>) =>
   loadConfig({ CACHE_DIR: mkdtempSync(path.join(tmpdir(), 'vox-')), ...extra } as NodeJS.ProcessEnv)

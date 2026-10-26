@@ -1,4 +1,4 @@
-import type { ProviderInfo, VoiceInfo, VoiceSettings } from '../../shared/types'
+import type { ProviderInfo, VoiceInfo, VoiceSettings } from '../../shared/types.js'
 
 export interface SynthesisResult {
   audio: Buffer

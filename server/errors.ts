@@ -1,4 +1,4 @@
-import type { ApiErrorCode } from '../shared/types'
+import type { ApiErrorCode } from '../shared/types.js'
 
 const STATUS: Record<ApiErrorCode, number> = {
   validation: 400,

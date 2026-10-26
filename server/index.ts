@@ -1,8 +1,8 @@
 import express from 'express'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
-import { createApp } from './app'
-import { loadConfig } from './config'
+import { createApp } from './app.js'
+import { loadConfig } from './config.js'
 
 const cfg = loadConfig()
 const { app, cache, provider } = createApp(cfg)

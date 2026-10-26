@@ -1,4 +1,4 @@
-import type { NarrationStyle } from './types'
+import type { NarrationStyle } from './types.js'
 
 export const STYLE_LABELS: Record<NarrationStyle, string> = {
   neutral: 'Neutral',

@@ -9,7 +9,12 @@ export function SetupBanner() {
   if (status === 'error') {
     return (
       <Notice tone="error" title="Narration server unreachable" action={<Button size="sm" onClick={() => void load()}>Retry</Button>}>
-        {error} Reading and your library still work offline; narration needs the server (<code>npm run dev</code>).
+        {error} Reading and your library still work offline.{' '}
+        {['localhost', '127.0.0.1'].includes(location.hostname) ? (
+          <>Narration needs the API server: run <code>npm run dev</code>.</>
+        ) : (
+          <>Narration needs the API: check the deployment’s function logs (on Vercel: Project → Logs).</>
+        )}
       </Notice>
     )
   }

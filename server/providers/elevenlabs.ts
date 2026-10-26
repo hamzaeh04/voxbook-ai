@@ -1,8 +1,8 @@
-import type { VoiceInfo, VoicePersona, VoiceSettings } from '../../shared/types'
-import { SAMPLE_SENTENCE } from '../../shared/voices'
-import type { Config } from '../config'
-import { ApiError, fromProviderStatus } from '../errors'
-import type { SynthesisResult, TtsProvider } from './types'
+import type { VoiceInfo, VoicePersona, VoiceSettings } from '../../shared/types.js'
+import { SAMPLE_SENTENCE } from '../../shared/voices.js'
+import type { Config } from '../config.js'
+import { ApiError, fromProviderStatus } from '../errors.js'
+import type { SynthesisResult, TtsProvider } from './types.js'
 
 const BASE = 'https://api.elevenlabs.io/v1'
 

@@ -1,9 +1,9 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
-import type { VoiceInfo, VoiceSettings } from '../../shared/types'
-import { EMOTION_SAMPLE } from '../../shared/voices'
-import { buildSsml, emotionalSegments, type Segment } from '../emotion'
-import { ApiError } from '../errors'
-import type { SynthesisResult, TtsProvider } from './types'
+import type { VoiceInfo, VoiceSettings } from '../../shared/types.js'
+import { EMOTION_SAMPLE } from '../../shared/voices.js'
+import { buildSsml, emotionalSegments, type Segment } from '../emotion.js'
+import { ApiError } from '../errors.js'
+import type { SynthesisResult, TtsProvider } from './types.js'
 
 /**
  * Microsoft Edge "Read Aloud" neural voices via msedge-tts (Node port of edge-tts).

@@ -3,10 +3,10 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import request from 'supertest'
 import { describe, expect, it, vi } from 'vitest'
-import { createApp } from '../../server/app'
-import { loadConfig } from '../../server/config'
-import { splitForTts } from '../../shared/chunk'
-import { createMockProvider } from '../../server/providers/mock'
+import { createApp } from '../../server/app.js'
+import { loadConfig } from '../../server/config.js'
+import { splitForTts } from '../../shared/chunk.js'
+import { createMockProvider } from '../../server/providers/mock.js'
 
 function setup(env: Record<string, string> = {}) {
   const cfg = loadConfig({ TTS_PROVIDER: 'mock', CACHE_DIR: mkdtempSync(path.join(tmpdir(), 'vox-')), ...env } as NodeJS.ProcessEnv)
@@ -78,7 +78,7 @@ describe('POST /api/narration/generate', () => {
 
   it('maps provider quota failures to a typed error', async () => {
     const { app, spy } = setup()
-    const { ApiError } = await import('../../server/errors')
+    const { ApiError } = await import('../../server/errors.js')
     spy.mockRejectedValueOnce(new ApiError('quota_exceeded', 'quota'))
     const res = await request(app).post('/api/narration/generate').send(body('Fails.')).expect(402)
     expect(res.body.error.code).toBe('quota_exceeded')
@@ -160,7 +160,7 @@ describe('batch jobs', () => {
 
   it('stops the job when quota is exhausted instead of burning requests', async () => {
     const { app, spy } = setup()
-    const { ApiError } = await import('../../server/errors')
+    const { ApiError } = await import('../../server/errors.js')
     spy.mockRejectedValue(new ApiError('quota_exceeded', 'No credits'))
     const items = Array.from({ length: 6 }, (_, i) => ({ key: String(i), text: `T${i}` }))
     const { body: created } = await request(app).post('/api/narration/batch').send({ voiceId: 'mock:deep', settings: { style: 'neutral' }, items })

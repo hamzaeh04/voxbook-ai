@@ -1,8 +1,8 @@
-import type { VoiceInfo, VoiceSettings } from '../../shared/types'
-import { STYLE_INSTRUCTIONS, SAMPLE_SENTENCE } from '../../shared/voices'
-import type { Config } from '../config'
-import { ApiError, fromProviderStatus } from '../errors'
-import type { SynthesisResult, TtsProvider } from './types'
+import type { VoiceInfo, VoiceSettings } from '../../shared/types.js'
+import { STYLE_INSTRUCTIONS, SAMPLE_SENTENCE } from '../../shared/voices.js'
+import type { Config } from '../config.js'
+import { ApiError, fromProviderStatus } from '../errors.js'
+import type { SynthesisResult, TtsProvider } from './types.js'
 
 /**
  * OpenAI voices. Persona labels are the closest *available* match and are described
