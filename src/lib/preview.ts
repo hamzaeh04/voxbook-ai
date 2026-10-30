@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import type { VoiceInfo, VoiceSettings } from '@shared/types'
-import { SAMPLE_SENTENCE } from '@shared/voices'
+import { EMOTION_SAMPLE, SAMPLE_SENTENCE } from '@shared/voices'
 import { api, ApiClientError, errorMessage } from './api'
 import { getEngine } from './audioEngine'
 import { ensureConsent, ConsentDeniedError } from './narration'
+import { generateKokoro } from './kokoro'
+import { isKokoro } from './kokoro/voices'
 import { unloadPlayback } from './playback'
 import { useSettings } from '@/stores/settings'
 
@@ -47,8 +49,12 @@ export async function previewVoice(voice: VoiceInfo, settings: VoiceSettings) {
     const key = `${voice.id}|${settings.style}`
     let blob = cache.get(key)
     if (!blob) {
-      await ensureConsent()
-      blob = (await api.generate({ text: voice.sampleText ?? SAMPLE_SENTENCE, voiceId: voice.id, settings })).blob
+      if (isKokoro(voice.id)) {
+        blob = (await generateKokoro(EMOTION_SAMPLE, voice.id, settings.style, { key: `preview:${voice.id}` })).blob
+      } else {
+        await ensureConsent()
+        blob = (await api.generate({ text: voice.sampleText ?? SAMPLE_SENTENCE, voiceId: voice.id, settings })).blob
+      }
       cache.set(key, blob)
     }
     if (mine !== token) return

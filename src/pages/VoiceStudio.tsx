@@ -4,6 +4,7 @@ import { Info, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { accentOf, accentOptions } from '@/lib/voiceGroups'
+import { useKokoro } from '@/lib/kokoro'
 import { VoiceCard } from '@/components/audio/VoiceCard'
 import { VoiceOrb, type OrbState } from '@/components/audio/VoiceOrb'
 import { Waveform } from '@/components/audio/Waveform'
@@ -24,6 +25,8 @@ export default function VoiceStudio() {
   const supports = selected?.supportedSettings
   const [q, setQ] = useState('')
   const [accent, setAccent] = useState('all')
+  const [engine, setEngine] = useState('all')
+  const kokoro = useKokoro()
   const [gender, setGender] = useState('all')
   const [multi, setMulti] = useState(false)
   const [shown, setShown] = useState(60)
@@ -32,12 +35,13 @@ export default function VoiceStudio() {
     return voices.filter(
       (v) =>
         (accent === 'all' || accentOf(v) === accent) &&
+        (engine === 'all' || v.provider === engine) &&
         (gender === 'all' || v.gender === gender) &&
         (!multi || v.multilingual) &&
         (!query || `${v.displayName} ${v.language} ${v.description} ${v.characteristics.join(' ')}`.toLowerCase().includes(query)),
     )
-  }, [voices, q, accent, gender, multi])
-  useEffect(() => setShown(60), [q, accent, gender, multi])
+  }, [voices, q, accent, engine, gender, multi])
+  useEffect(() => setShown(60), [q, accent, engine, gender, multi])
 
   return (
     <div className="space-y-8">
@@ -65,16 +69,30 @@ export default function VoiceStudio() {
       {status === 'loading' && <p className="text-muted" role="status">Loading voices…</p>}
       {voices.length > 0 && (
         <section aria-labelledby="vc-h" className="space-y-3">
-          <h2 id="vc-h" className="text-lg font-semibold">{voices.length} English voices {provider && <span className="text-sm font-normal text-muted">· {provider.label}</span>}</h2>
+          <h2 id="vc-h" className="text-lg font-semibold">{voices.length} English voices · 2 free engines</h2>
           <div className="flex flex-wrap items-center gap-2.5" role="search">
             <div className="relative min-w-[200px] flex-1">
               <Search size={16} className="pointer-events-none absolute left-3 top-3 text-muted" aria-hidden="true" />
               <input value={q} onChange={(e) => setQ(e.target.value)} type="search" aria-label="Search voices" placeholder="Search name, accent or personality" className="h-10 w-full rounded-xl border border-line bg-raised pl-9 pr-3 text-sm" />
             </div>
+            <Select label="Engine" value={engine} onChange={setEngine} options={[
+              { value: 'all', label: 'All engines' },
+              { value: 'edge', label: `Microsoft Edge · online (${voices.filter((v) => v.provider === 'edge').length})` },
+              { value: 'kokoro', label: `Kokoro · on this device (${voices.filter((v) => v.provider === 'kokoro').length})` },
+            ]} />
             <Select label="Accent" value={accent} onChange={setAccent} options={[{ value: 'all', label: `All English accents (${voices.length})` }, ...accentOptions(voices)]} />
             <Select label="Gender" value={gender} onChange={setGender} options={[{ value: 'all', label: 'Any gender' }, { value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]} />
             <label className="flex h-10 items-center gap-2 text-sm text-muted"><input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--amber))]" />Multilingual only</label>
           </div>
+          {(engine === 'kokoro' || kokoro.status === 'loading' || kokoro.status === 'error') && (
+            <Notice tone={kokoro.status === 'error' ? 'error' : 'info'} title="Kokoro runs on this device">
+              {kokoro.status === 'loading'
+                ? `Downloading the voice model (one time${kokoro.device === 'webgpu' ? ', GPU version ~310 MB' : ', ~90 MB'})… ${kokoro.download ? `${Math.round(kokoro.download)}%` : ''}`
+                : kokoro.status === 'error'
+                  ? `The on-device engine failed: ${kokoro.error}`
+                  : `Free and private: speech is generated in your browser${kokoro.device ? ` using the ${kokoro.device === 'webgpu' ? 'GPU' : 'CPU'}` : ''}, nothing is sent anywhere. The first use downloads the voice model once. Emotion is performed with per-sentence pace, loudness and pauses.`}
+            </Notice>
+          )}
           <p className="text-sm text-muted" role="status">Showing {Math.min(shown, filtered.length)} of {filtered.length} matching voices.</p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.slice(0, shown).map((v) => (

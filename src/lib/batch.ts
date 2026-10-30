@@ -3,6 +3,7 @@ import type { BatchItemState, VoiceInfo, VoiceSettings } from '@shared/types'
 import { api, ApiClientError, errorMessage } from './api'
 import { deleteMeta, getBatchRecord, getNarration, getPages, listBooks, setMeta } from './db'
 import { publishNarration } from './cloud'
+import { isKokoro } from './kokoro/voices'
 import { ensureConsent, generateForPage, narrationIsCurrent, storeNarration } from './narration'
 import type { BatchRecord } from './types'
 import { hashText, markupToPlain } from './utils'
@@ -51,13 +52,15 @@ export async function startBatch(bookId: string, voice: VoiceInfo, settings: Voi
   if (pollers.has(bookId) || localRuns.has(bookId)) return
   useBatches.getState().set(bookId, { status: 'starting', done: 0, failed: 0, total: 0, errors: [], message: undefined })
   try {
-    await ensureConsent()
+    const onDevice = isKokoro(voice.id)
+    if (!onDevice) await ensureConsent()
     const todo = await pagesNeedingAudio(bookId, voice.id, settings)
     if (!todo.length) {
       useBatches.getState().set(bookId, { status: 'done', total: 0, done: 0, message: 'Every page already has up-to-date narration.' })
       return
     }
-    if (useVoices.getState().provider?.serverJobs === false) return await runLocalBatch(bookId, voice, settings, todo.map((t) => t.pageNumber))
+    // On-device voices always run in this tab; so does everything on serverless hosts.
+    if (onDevice || useVoices.getState().provider?.serverJobs === false) return await runLocalBatch(bookId, voice, settings, todo.map((t) => t.pageNumber))
     const { jobId } = await api.createBatch({ voiceId: voice.id, settings, items: todo.map((t) => ({ key: String(t.pageNumber), text: t.text })) })
     const record: BatchRecord = { bookId, jobId, voiceId: voice.id, settings, pages: todo.map((t) => t.pageNumber), startedAt: Date.now() }
     await setMeta(`batch:${bookId}`, record)
@@ -178,7 +181,7 @@ export async function cancelBatch(bookId: string) {
 
 export async function retryFailed(bookId: string, current?: { voice: VoiceInfo; settings: VoiceSettings }) {
   // Browser-run batches have no server job to retry: start again for whatever is still missing.
-  if (useVoices.getState().provider?.serverJobs === false) {
+  if (useVoices.getState().provider?.serverJobs === false || isKokoro(current?.voice.id)) {
     if (current) await startBatch(bookId, current.voice, current.settings)
     return
   }

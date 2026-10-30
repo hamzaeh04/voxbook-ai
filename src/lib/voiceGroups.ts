@@ -5,14 +5,18 @@ export const accentOf = (v: VoiceInfo) => v.language.match(/\(([^)]+)\)/)?.[1] ?
 
 export const PERSONA_GROUP = 'Narrators'
 
-/** Voices grouped for pickers: the narrator personas first, then one group per accent (US first). */
+export const ENGINE_LABEL: Record<string, string> = { edge: 'Microsoft Edge', kokoro: 'Kokoro (on this device)' }
+export const engineLabel = (v: VoiceInfo) => ENGINE_LABEL[v.provider] ?? v.provider
+
+/** Voices grouped for pickers: the narrator personas first, then per engine and accent (US, UK first). */
 export function groupVoices(voices: VoiceInfo[]): [string, VoiceInfo[]][] {
   const groups = new Map<string, VoiceInfo[]>()
   for (const v of voices) {
-    const key = v.persona !== 'other' ? PERSONA_GROUP : accentOf(v)
+    const key = v.persona !== 'other' ? PERSONA_GROUP : `${engineLabel(v)} · ${accentOf(v)}`
     groups.set(key, [...(groups.get(key) ?? []), v])
   }
-  const order = (k: string) => (k === PERSONA_GROUP ? 0 : k === 'United States' ? 1 : k === 'United Kingdom' ? 2 : 3)
+  const order = (k: string) =>
+    (k === PERSONA_GROUP ? 0 : k.startsWith('Kokoro') ? 10 : 1) + (k.endsWith('United States') ? 0 : k.endsWith('United Kingdom') ? 1 : 2)
   return [...groups].sort(([a], [b]) => order(a) - order(b) || a.localeCompare(b))
 }
 

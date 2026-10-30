@@ -1,7 +1,7 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts'
 import type { VoiceInfo, VoiceSettings } from '../../shared/types.js'
 import { EMOTION_SAMPLE } from '../../shared/voices.js'
-import { buildSsml, emotionalSegments, type Segment } from '../emotion.js'
+import { buildSsml, emotionalSegments, type Segment } from '../../shared/emotion.js'
 import { ApiError } from '../errors.js'
 import type { SynthesisResult, TtsProvider } from './types.js'
 

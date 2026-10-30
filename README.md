@@ -59,6 +59,16 @@ Uses [msedge-tts](https://www.npmjs.com/package/msedge-tts), the Node port of th
 
 **Caveat:** this is an unofficial integration, not a Microsoft API. Microsoft can change or block it at any time, and page text is sent to Microsoft's servers (the consent dialog says so). If it breaks, set `OPENAI_API_KEY`/`ELEVENLABS_API_KEY`, or add a self-hosted engine (e.g. Coqui/Piper/Kokoro) as another provider.
 
+### Kokoro: free voices that run in the browser
+
+28 English voices from the open-source [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) model (Apache-2.0), via [kokoro-js](https://www.npmjs.com/package/kokoro-js). They appear next to the Edge voices; there is nothing to configure.
+
+* **Runs on the visitor's device** in a Web Worker ([src/lib/kokoro/](src/lib/kokoro/)): free, private (no text leaves the browser, so no consent prompt), and it works even if the voice server is down. The model downloads once and is cached: ~310 MB using the GPU (WebGPU), or ~90 MB 8-bit for CPU.
+* **Speed (measured):** on an Apple-Silicon Mac in Chrome, 65 s of narration took about 22 s to generate (~3× faster than real time). On CPU only, it was slower than real time (19 s of audio in ~30 s). Generated chapters are shared like any other narration, so each chapter is performed once.
+* **Emotion:** Kokoro has no emotion tags, so the app performs each sentence with its own pace, loudness and the pause after it ([src/lib/kokoro/plan.ts](src/lib/kokoro/plan.ts)), using the same mood detection as Edge. Real pauses are something Edge's free endpoint rejects.
+* **Quality varies by voice:** the model authors grade them A to F (shown on each voice card). *Heart* (A), *Bella* (A−), *Nicole* (soft/whispery), *Emma* (British) and *Fenrir*/*Michael* are the strongest.
+* Pieces are kept under 280 characters because Kokoro silently truncates longer inputs. Audio is encoded to 48 kbps MP3 in the browser (lamejs, LGPL-3.0).
+
 ### OpenAI (used automatically when `OPENAI_API_KEY` is set)
 
 ```env

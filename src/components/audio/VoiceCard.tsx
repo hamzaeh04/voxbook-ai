@@ -33,6 +33,7 @@ export function VoiceCard({
       {!compact && <p className="text-sm text-muted">{voice.description}</p>}
       <div className="flex flex-wrap gap-1.5">
         <Badge tone="violet">{PERSONA_LABEL[voice.persona]}</Badge>
+        <Badge tone={voice.provider === 'kokoro' ? 'ok' : 'neutral'}>{voice.provider === 'kokoro' ? 'On this device' : 'Microsoft Edge'}</Badge>
         {voice.characteristics.slice(0, 3).map((c) => <Badge key={c}>{c}</Badge>)}
       </div>
       <div className="mt-auto flex gap-2">

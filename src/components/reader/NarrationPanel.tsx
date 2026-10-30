@@ -1,7 +1,7 @@
 import { Download, Headphones, Loader2, Pause, Play, RefreshCw, Trash2, X } from 'lucide-react'
 import type { NarrationStyle, VoiceInfo } from '@shared/types'
 import { STYLE_LABELS } from '@shared/voices'
-import { Badge, Notice } from '../ui/misc'
+import { Badge, Notice, Progress } from '../ui/misc'
 import { Button } from '../ui/Button'
 import { VoiceOrb, type OrbState } from '../audio/VoiceOrb'
 import { cancelGeneration, generateForPage, narrationIsCurrent, useJobs } from '@/lib/narration'
@@ -18,6 +18,8 @@ import { toast } from '@/stores/toasts'
 import { useEffect, useState } from 'react'
 import { ApiClientError } from '@/lib/api'
 import { groupVoices } from '@/lib/voiceGroups'
+import { useKokoro } from '@/lib/kokoro'
+import { isKokoro } from '@/lib/kokoro/voices'
 import { BatchPanel } from './BatchPanel'
 import { MicRecorderPanel } from './MicRecorderPanel'
 
@@ -26,6 +28,8 @@ const STATUS_LABEL: Record<PageStatus, string> = { none: 'Not generated', genera
 
 export function NarrationPanel({ book, page }: { book: Book; page: Page }) {
   const pageNumber = page.pageNumber
+  const kokoro = useKokoro()
+  const kokoroTask = kokoro.task?.key === `${book.id}:${page.pageNumber}` ? kokoro.task : undefined
   const u = unitOf(book)
   const { voices, provider } = useVoices()
   const style = useSettings((s) => s.style)
@@ -78,6 +82,18 @@ export function NarrationPanel({ book, page }: { book: Book; page: Page }) {
         </div>
       </div>
 
+      {generating && isKokoro(voice?.id) && (
+        <div className="space-y-1.5" role="status" aria-live="polite">
+          <p className="text-xs text-muted">
+            {kokoro.status === 'loading'
+              ? `Downloading the on-device voice model (one time)… ${kokoro.download ? `${Math.round(kokoro.download)}%` : ''}`
+              : kokoroTask
+                ? `Performing on this device: ${kokoroTask.done} of ${kokoroTask.total} sentences`
+                : 'Waiting for the on-device voice…'}
+          </p>
+          <Progress value={kokoro.status === 'loading' ? (kokoro.download ?? 0) / 100 : kokoroTask ? kokoroTask.done / kokoroTask.total : undefined} label="On-device narration progress" />
+        </div>
+      )}
       {job?.state === 'error' && (
         <Notice tone="error" title={job.error!.code === 'quota_exceeded' ? 'Provider quota reached' : job.error!.code === 'rate_limited' ? 'Rate limit reached' : 'Narration failed'}
           action={job.error!.retryable ? <Button size="sm" onClick={() => void generate(true)}><RefreshCw size={14} /> Retry</Button> : undefined}>

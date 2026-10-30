@@ -4,7 +4,7 @@ import { api, errorMessage } from './api'
 import { deleteBook, getBook, getPages, listBooks, putBook, putNarration, saveImportedBook, updateBook } from './db'
 import type { Book, Narration, Page } from './types'
 import { pageId } from './utils'
-import { useVoices } from '@/stores/voices'
+import { engineFor } from './engine'
 
 /**
  * Shared library sync. The app still reads from this browser's IndexedDB; this module mirrors it:
@@ -232,7 +232,7 @@ export async function fetchSharedNarration(args: { bookId: string; pageNumber: n
   if (!useCloud.getState().enabled) return null
   const book = await getBook(args.bookId)
   if (book?.cloud !== 'synced') return null
-  const engine = useVoices.getState().provider?.engineVersion
+  const engine = engineFor(args.voiceId)
   try {
     const m = await sharedManifest(args.bookId, args.pageNumber)
     if (!m || m.voiceId !== args.voiceId || m.style !== args.settings.style || m.textHash !== args.textHash || (engine && m.engine !== engine)) return null

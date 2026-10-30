@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSsml, emotionalSegments, moodOf } from '../../server/emotion.js'
+import { buildSsml, emotionalSegments, moodOf } from '../../shared/emotion.js'
 import { groupSegments } from '../../server/providers/edge.js'
 
 describe('emotion engine', () => {
@@ -47,7 +47,7 @@ describe('emotion engine', () => {
 
 describe('voice identity', () => {
   it('never shifts pitch more than a few percent, at any intensity, so it stays one speaker', async () => {
-    const { MAX_PITCH_SHIFT } = await import('../../server/emotion.js')
+    const { MAX_PITCH_SHIFT } = await import('../../shared/emotion.js')
     const text = 'They wept in sorrow. Rise up and fight! Who goes there? We rejoice with joy! His wrath burns! “Come,” she said.'
     for (const intensity of [1, 1.6]) {
       for (const s of emotionalSegments(text, intensity)) expect(Math.abs(s.prosody.pitch)).toBeLessThanOrEqual(MAX_PITCH_SHIFT)

@@ -195,9 +195,9 @@ export function createLibraryRouter(store: ObjectStore | null, disabledReason: s
   router.get(
     '/books/:id/narrations/:n',
     wrap(async (req, res) => {
+      // "Nobody has narrated this yet" is a normal answer, not an error: 200 with null.
       const manifest = parseJson<SharedNarration>(await need().get(`narr/${id.parse(req.params.id)}/${chapterNo.parse(req.params.n)}.json`))
-      if (!manifest) throw new ApiError('not_found', 'No shared narration for this chapter yet.')
-      res.set('Cache-Control', 'no-store').json(manifest)
+      res.set('Cache-Control', 'no-store').json(manifest ?? null)
     }),
   )
 

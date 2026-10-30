@@ -8,6 +8,9 @@ import type { Narration, Page } from './types'
 import { hashText, markupToPlain, pageId } from './utils'
 import { useConsent } from '@/stores/consent'
 import { fetchSharedNarration, publishNarration } from './cloud'
+import { engineFor } from './engine'
+import { generateKokoro } from './kokoro'
+import { isKokoro } from './kokoro/voices'
 import { useVoices } from '@/stores/voices'
 
 export interface JobState {
@@ -51,7 +54,7 @@ export interface GenerateArgs {
 export function narrationIsCurrent(n: Narration | undefined, page: Pick<Page, 'extractedText'> | undefined, voiceId: string, settings: VoiceSettings): boolean {
   if (!n || !page) return false
   // Audio from an older engine version (e.g. before an emotion-engine fix) is regenerated.
-  const engine = useVoices.getState().provider?.engineVersion
+  const engine = engineFor(voiceId)
   if (engine && n.engine !== engine) return false
   return n.voiceId === voiceId && n.voiceSettings.style === settings.style && n.textHash === hashText(markupToPlain(page.extractedText))
 }
@@ -118,7 +121,7 @@ export async function storeNarration(args: {
   voice: VoiceInfo
   settings: VoiceSettings
   textHash: string
-  audio: { blob: Blob; format: 'mp3' | 'wav' }
+  audio: { blob: Blob; format: 'mp3' | 'wav'; duration?: number }
 }): Promise<Narration> {
   const id = pageId(args.bookId, args.pageNumber)
   const narration: Narration = {
@@ -131,12 +134,12 @@ export async function storeNarration(args: {
     voiceSettings: args.settings,
     audioBlob: args.audio.blob,
     audioFormat: args.audio.format,
-    duration: await readDuration(args.audio.blob),
+    duration: args.audio.duration ?? (await readDuration(args.audio.blob)),
     size: args.audio.blob.size,
     createdAt: Date.now(),
     status: 'ready',
     textHash: args.textHash,
-    engine: useVoices.getState().provider?.engineVersion,
+    engine: engineFor(args.voice.id),
   }
   await putNarration(narration)
   return narration
@@ -191,11 +194,14 @@ export async function generateForPage(args: GenerateArgs): Promise<Narration> {
     if (shared) return shared
   }
 
-  await ensureConsent()
+  const onDevice = isKokoro(voice.id)
+  if (!onDevice) await ensureConsent() // on-device voices send nothing anywhere
   const dedupeKey = `${jobKey}|${voice.id}|${settings.style}|${textHash}`
   return queue.enqueue(dedupeKey, jobKey, async (signal) => {
-    // Only this chapter's text is sent — never the whole book.
-    const audio = await generateInParts(text, voice.id, settings, signal)
+    // Only this chapter's text is sent (never the whole book), or nothing at all for on-device voices.
+    const audio = onDevice
+      ? { ...(await generateKokoro(text, voice.id, settings.style, { key: jobKey, signal })), format: 'mp3' as const }
+      : await generateInParts(text, voice.id, settings, signal)
     const narration = await storeNarration({ bookId, pageNumber, voice, settings, textHash, audio })
     void publishNarration(narration) // share it so nobody has to generate this chapter again
     return narration

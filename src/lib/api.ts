@@ -128,12 +128,7 @@ export const api = {
   },
   /** The published narration for one chapter, or null if nobody has shared one yet. */
   async sharedNarration(id: string, n: number): Promise<SharedNarration | null> {
-    try {
-      return await (await request(`/api/library/books/${id}/narrations/${n}`, { cache: 'no-store' })).json()
-    } catch (e) {
-      if (e instanceof ApiClientError && e.code === 'not_found') return null
-      throw e
-    }
+    return (await (await request(`/api/library/books/${id}/narrations/${n}`, { cache: 'no-store' })).json()) ?? null
   },
   async putSharedNarrationPart(id: string, n: number, k: number, version: string, part: Blob): Promise<void> {
     await request(`/api/library/books/${id}/narrations/${n}/parts/${k}?version=${version}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: part })

@@ -30,7 +30,7 @@ describe('shared library', () => {
     expect((await request(app).get(`/api/library/books/${ID}/cover`).expect(200)).body.toString()).toBe('JPEG')
 
     // audio: parts first, then the manifest publishes it
-    await request(app).get(`/api/library/books/${ID}/narrations/1`).expect(404)
+    expect((await request(app).get(`/api/library/books/${ID}/narrations/1`).expect(200)).body).toBeNull()
     await request(app).put(`/api/library/books/${ID}/narrations/1/parts/0?version=aaaaaa1`).set('Content-Type', 'application/octet-stream').send(Buffer.from('ID3')).expect(200)
     await request(app).put(`/api/library/books/${ID}/narrations/1/parts/1?version=aaaaaa1`).set('Content-Type', 'application/octet-stream').send(Buffer.from('xyz')).expect(200)
     await request(app).put(`/api/library/books/${ID}/narrations/1`).send(manifest('aaaaaa1')).expect(200)
