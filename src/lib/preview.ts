@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { VoiceInfo, VoiceSettings } from '@shared/types'
-import { EMOTION_SAMPLE, SAMPLE_SENTENCE } from '@shared/voices'
+import { EMOTION_SAMPLE, SAMPLE_SENTENCE, STYLE_LABELS } from '@shared/voices'
+import { downloadBlob, safeFileStem } from './utils'
+import { toast } from '@/stores/toasts'
 import { api, ApiClientError, errorMessage } from './api'
 import { getEngine } from './audioEngine'
 import { ensureConsent, ConsentDeniedError } from './narration'
@@ -36,6 +38,40 @@ export function stopPreview() {
   usePreview.setState({ status: 'idle', voiceId: undefined })
 }
 
+/** The voice's sample sentence as audio, generated once per voice and style for this session. */
+async function sampleBlob(voice: VoiceInfo, settings: VoiceSettings): Promise<Blob> {
+  const key = `${voice.id}|${settings.style}`
+  const hit = cache.get(key)
+  if (hit) return hit
+  let blob: Blob
+  if (isKokoro(voice.id)) {
+    blob = (await generateKokoro(EMOTION_SAMPLE, voice.id, settings.style, { key: `preview:${voice.id}` })).blob
+  } else {
+    await ensureConsent()
+    blob = (await api.generate({ text: voice.sampleText ?? SAMPLE_SENTENCE, voiceId: voice.id, settings })).blob
+  }
+  cache.set(key, blob)
+  return blob
+}
+
+/** Voice ids whose sample is being prepared for download (drives the card's button state). */
+export const useSampleDownloads = create<{ busy: Record<string, boolean> }>(() => ({ busy: {} }))
+
+/** Download a voice's sample sentence as an audio file, e.g. `Bella_US_Emotional_sample.mp3`. */
+export async function downloadVoiceSample(voice: VoiceInfo, settings: VoiceSettings) {
+  const setBusy = (on: boolean) => useSampleDownloads.setState((s) => ({ busy: { ...s.busy, [voice.id]: on } }))
+  setBusy(true)
+  try {
+    const blob = await sampleBlob(voice, settings)
+    const ext = blob.type.includes('wav') ? 'wav' : 'mp3'
+    downloadBlob(blob, `${safeFileStem(voice.displayName)}_${STYLE_LABELS[settings.style].split(' ')[0]}_sample.${ext}`)
+  } catch (e) {
+    if (!(e instanceof ConsentDeniedError)) toast.error(`Could not prepare the ${voice.displayName} sample: ${errorMessage(e)}`)
+  } finally {
+    setBusy(false)
+  }
+}
+
 /** Plays a short sample sentence in the chosen voice. Samples are cached for the session to avoid repeat billing. */
 export async function previewVoice(voice: VoiceInfo, settings: VoiceSettings) {
   wire()
@@ -46,17 +82,7 @@ export async function previewVoice(voice: VoiceInfo, settings: VoiceSettings) {
   engine.previewing = true
   usePreview.setState({ voiceId: voice.id, status: 'generating', error: undefined })
   try {
-    const key = `${voice.id}|${settings.style}`
-    let blob = cache.get(key)
-    if (!blob) {
-      if (isKokoro(voice.id)) {
-        blob = (await generateKokoro(EMOTION_SAMPLE, voice.id, settings.style, { key: `preview:${voice.id}` })).blob
-      } else {
-        await ensureConsent()
-        blob = (await api.generate({ text: voice.sampleText ?? SAMPLE_SENTENCE, voiceId: voice.id, settings })).blob
-      }
-      cache.set(key, blob)
-    }
+    const blob = await sampleBlob(voice, settings)
     if (mine !== token) return
     engine.load(blob)
     engine.el.volume = useSettings.getState().volume

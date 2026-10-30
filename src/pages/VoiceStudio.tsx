@@ -12,7 +12,7 @@ import { SetupBanner } from '@/components/layout/SetupBanner'
 import { Notice, Select } from '@/components/ui/misc'
 import { Slider } from '@/components/ui/Slider'
 import { setVolume } from '@/lib/playback'
-import { previewVoice, stopPreview, usePreview } from '@/lib/preview'
+import { downloadVoiceSample, previewVoice, stopPreview, usePreview, useSampleDownloads } from '@/lib/preview'
 import { useSettings } from '@/stores/settings'
 import { pickVoice, useVoices } from '@/stores/voices'
 
@@ -27,6 +27,14 @@ export default function VoiceStudio() {
   const [accent, setAccent] = useState('all')
   const [engine, setEngine] = useState('all')
   const kokoro = useKokoro()
+  const sampleBusy = useSampleDownloads((st) => st.busy)
+  /** Progress text for a Kokoro voice being previewed or downloaded (first use downloads the model). */
+  const labelFor = (voiceId?: string) => {
+    if (!voiceId?.startsWith('kokoro:')) return undefined
+    if (kokoro.status === 'loading') return `Downloading model${kokoro.download ? ` ${Math.round(kokoro.download)}%` : '…'}`
+    if (kokoro.task?.key === `preview:${voiceId}`) return `Performing ${kokoro.task.done}/${kokoro.task.total}`
+    return undefined
+  }
   const [gender, setGender] = useState('all')
   const [multi, setMulti] = useState(false)
   const [shown, setShown] = useState(60)
@@ -60,7 +68,7 @@ export default function VoiceStudio() {
           </div>
           <Waveform active={preview.status === 'playing'} bars={48} className="h-14" label={preview.status === 'playing' ? 'Audio waveform, playing' : 'Audio waveform, idle'} />
           <p className="text-sm text-muted" role="status">
-            {preview.status === 'generating' ? 'Generating preview…' : preview.status === 'playing' ? `Playing ${selected && preview.voiceId === selected.id ? selected.displayName : 'preview'}` : preview.status === 'error' ? '' : selected ? `Selected: ${selected.displayName}` : 'No voice available yet.'}
+            {preview.status === 'generating' ? (labelFor(preview.voiceId) ?? 'Generating preview…') : preview.status === 'playing' ? `Playing ${selected && preview.voiceId === selected.id ? selected.displayName : 'preview'}` : preview.status === 'error' ? '' : selected ? `Selected: ${selected.displayName}` : 'No voice available yet.'}
           </p>
           {preview.status === 'error' && <Notice tone="error" title="Preview failed">{preview.error}</Notice>}
         </div>
@@ -96,7 +104,7 @@ export default function VoiceStudio() {
           <p className="text-sm text-muted" role="status">Showing {Math.min(shown, filtered.length)} of {filtered.length} matching voices.</p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.slice(0, shown).map((v) => (
-              <VoiceCard key={v.id} voice={v} selected={selected?.id === v.id} previewState={preview.voiceId === v.id && (preview.status === 'generating' || preview.status === 'playing') ? preview.status : 'idle'}
+              <VoiceCard key={v.id} voice={v} selected={selected?.id === v.id} progressLabel={labelFor(v.id)} downloading={Boolean(sampleBusy[v.id])} onDownload={() => void downloadVoiceSample(v, { style: s.style })} previewState={preview.voiceId === v.id && (preview.status === 'generating' || preview.status === 'playing') ? preview.status : 'idle'}
                 onSelect={() => s.set({ preferredVoiceId: v.id })}
                 onPreview={() => (preview.voiceId === v.id && preview.status === 'playing' ? stopPreview() : void previewVoice(v, { style: s.style }))} />
             ))}

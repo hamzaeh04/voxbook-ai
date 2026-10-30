@@ -11,7 +11,7 @@ import { EmptyState, Progress } from '@/components/ui/misc'
 import { useDb } from '@/hooks/useDb'
 import { useLibrary } from '@/hooks/useLibrary'
 import { getMeta, listRecordings, narrationCounts } from '@/lib/db'
-import { previewVoice, stopPreview, usePreview } from '@/lib/preview'
+import { downloadVoiceSample, previewVoice, stopPreview, usePreview, useSampleDownloads } from '@/lib/preview'
 import { formatListening, unitOf } from '@/lib/utils'
 import { useSettings } from '@/stores/settings'
 import { pickVoice, useVoices } from '@/stores/voices'
@@ -35,6 +35,7 @@ export default function Dashboard() {
   const { voices } = useVoices()
   const settings = useSettings()
   const preview = usePreview()
+  const sampleBusy = useSampleDownloads((st) => st.busy)
   const { data: listen } = useDb(() => getMeta<number>('listenSeconds'), [])
   const { data: mic } = useDb(async () => (await listRecordings()).length, [])
   const { data: audioTotal } = useDb(async () => Object.values(await narrationCounts()).reduce((a, b) => a + b, 0), [])
@@ -117,7 +118,7 @@ export default function Dashboard() {
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             {quick.map((v) => (
-              <VoiceCard key={v.id} voice={v} compact selected={selected?.id === v.id} previewState={preview.voiceId === v.id && preview.status !== 'idle' && preview.status !== 'error' ? preview.status : 'idle'}
+              <VoiceCard key={v.id} voice={v} compact selected={selected?.id === v.id} downloading={Boolean(sampleBusy[v.id])} onDownload={() => void downloadVoiceSample(v, { style: settings.style })} previewState={preview.voiceId === v.id && preview.status !== 'idle' && preview.status !== 'error' ? preview.status : 'idle'}
                 onSelect={() => settings.set({ preferredVoiceId: v.id })} onPreview={() => (preview.voiceId === v.id && preview.status === 'playing' ? stopPreview() : void previewVoice(v, { style: settings.style }))} />
             ))}
           </div>
